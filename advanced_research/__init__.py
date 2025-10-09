@@ -1,7 +1,7 @@
 from advanced_research.main import (
     AdvancedResearch,
-    execute_worker_search_agents,
     AdvancedResearchAdditionalConfig,
+    execute_worker_search_agents,
 )
 
 __all__ = [

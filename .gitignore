@@ -17,6 +17,7 @@ agent_workspace/
 build/
 develop-eggs/
 dist/
+vlam
 downloads/
 eggs/
 .eggs/

@@ -1,10 +1,3 @@
-"""
-Advanced Research System Prompts
-
-This module contains all the prompt templates used by the Advanced Research System.
-Each prompt is designed for specific agent types and use cases.
-"""
-
 from functools import lru_cache
 
 

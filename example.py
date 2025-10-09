@@ -2,13 +2,13 @@ import json
 
 from advanced_research.main import AdvancedResearch
 
-# Example 1: Traditional research mode with direct output
-print("=== Example 1: Traditional Research Mode ===")
 research_system = AdvancedResearch(
     name="Medical Research Team",
     description="A team of medical researchers who specialize in finding the best treatments for diabetes.",
     max_loops=1,
     output_type="dict",
+    director_model_name="claude-3-7-sonnet-20250219",
+    worker_model_name="claude-3-7-sonnet-20250219",
 )
 
 # Run research and get results

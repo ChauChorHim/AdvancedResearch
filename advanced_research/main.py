@@ -8,21 +8,21 @@ import orjson
 from dotenv import load_dotenv
 from loguru import logger
 from pydantic import BaseModel, Field
-from swarms.structs.agent import Agent
 from swarms.prompts.agent_conversation_aggregator import (
     AGGREGATOR_SYSTEM_PROMPT,
 )
+from swarms.structs.agent import Agent
 from swarms.structs.conversation import Conversation
 from swarms.utils.history_output_formatter import (
     HistoryOutputType,
     history_output_formatter,
 )
+from swarms_tools import exa_search
 
 from advanced_research.prompts import (
     get_orchestrator_prompt,
     get_synthesis_prompt,
 )
-from swarms_tools import exa_search
 
 load_dotenv()
 
@@ -33,6 +33,13 @@ exa_search_num_results = int(os.getenv("EXA_SEARCH_NUM_RESULTS", 2))
 exa_search_max_characters = int(
     os.getenv("EXA_SEARCH_MAX_CHARACTERS", 100)
 )
+director_model_name = os.getenv(
+    "DIRECTOR_MODEL_NAME", "claude-3-7-sonnet-20250219"
+)
+
+
+def generate_id():
+    return f"AdvancedResearch-{uuid.uuid4()}-time-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
 
 # Schema
@@ -59,9 +66,8 @@ schema = AdvancedResearchAdditionalConfig()
 
 
 def summarization_agent(
-    model_name: str | None = "claude-3-7-sonnet-20250219",
+    model_name: str | None = model_name,
     task: str | None = None,
-    max_tokens: int | None = 1000,
     img: str = None,
     **kwargs: Any,
 ) -> str:
@@ -69,11 +75,11 @@ def summarization_agent(
     Summarization agent for generating a concise summary of research findings.
 
     Args:
-        model_name (str, optional): The name of the language model to use for summarization. 
+        model_name (str, optional): The name of the language model to use for summarization.
             Defaults to "claude-3-7-sonnet-20250219".
-        task (str, optional): The research findings or content to be summarized. 
+        task (str, optional): The research findings or content to be summarized.
             Should be a string describing the summarization task or the text to summarize.
-        max_tokens (int, optional): The maximum number of tokens to generate in the summary. 
+        max_tokens (int, optional): The maximum number of tokens to generate in the summary.
             Defaults to 1000.
         img (str, optional): Optional image input for multimodal summarization, if supported.
         **kwargs: Additional keyword arguments passed to the Agent.
@@ -83,10 +89,10 @@ def summarization_agent(
     """
     agent = Agent(
         agent_name="Report-Generator-Agent",
+        agent_description="An agent that generates a concise summary of research findings.",
         system_prompt=AGGREGATOR_SYSTEM_PROMPT,
         model_name=model_name,
         max_loops=1,
-        max_tokens=max_tokens,
     )
     return agent.run(task=task, img=img)
 
@@ -124,7 +130,6 @@ def create_json_file(data: dict, file_name: str):
         f.write(
             orjson.dumps(data_to_write, option=orjson.OPT_INDENT_2)
         )
-
 
 
 def run_agent(i: int, query: str):
@@ -199,7 +204,9 @@ def execute_worker_search_agents(
         >>> print(results[1])  # Output from the second query's agent
     """
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=os.cpu_count()
+    ) as executor:
         futures = [
             executor.submit(run_agent, i, query)
             for i, query in enumerate(queries)
@@ -214,11 +221,12 @@ def execute_worker_search_agents(
 
 def create_director_agent(
     agent_name: str = "Director-Agent",
-    model_name: str = "claude-3-7-sonnet-20250219",
+    model_name: str = director_model_name,
     task: str | None = None,
-    max_tokens: int = 8000,
     img: Optional[str] = None,
     max_loops: int = 1,
+    *args,
+    **kwargs,
 ):
     """
     Create a director agent for the advanced research system.
@@ -242,13 +250,11 @@ def create_director_agent(
         max_tokens=max_tokens,
         tools=[execute_worker_search_agents],
         tool_call_summary=True,
+        *args,
+        **kwargs,
     )
 
     return director_agent.run(task=task, img=img)
-
-
-def generate_id():
-    return f"AdvancedResearch-{uuid.uuid4()}-time-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
 
 class AdvancedResearch:
@@ -277,9 +283,9 @@ class AdvancedResearch:
         id: str = generate_id(),
         name: str = "Advanced Research",
         description: str = "Advanced Research",
-        worker_model_name: str = "claude-3-7-sonnet-20250219",
+        worker_model_name: str = model_name,
         director_agent_name: str = "Director-Agent",
-        director_model_name: str = "claude-3-7-sonnet-20250219",
+        director_model_name: str = director_model_name,
         director_max_tokens: int = 8000,
         output_type: HistoryOutputType = "final",
         max_loops: int = 1,
@@ -334,7 +340,6 @@ class AdvancedResearch:
             agent_name=self.director_agent_name,
             model_name=self.director_model_name,
             task=task,
-            max_tokens=self.director_max_tokens,
             img=img,
         )
 
@@ -363,12 +368,48 @@ class AdvancedResearch:
         """
         if task is None:
             raise ValueError(
-                "task argument is required to run the research system"
+                "task argument is required to run AdvancedResearch"
             )
 
+        # Add the initial human task to conversation
         self.conversation.add("human", task)
 
-        self.step(task, img)
+        # Run the research system for the specified number of loops
+        for loop_num in range(self.max_loops):
+            logger.info(
+                f"Starting research loop {loop_num + 1}/{self.max_loops}"
+            )
+
+            # Create a context-aware task that includes previous conversation history
+            if loop_num == 0:
+                # First loop: use the original task
+                current_task = task
+            else:
+                # Subsequent loops: create a continuation task that references previous findings
+                previous_output = (
+                    self.conversation.get_final_message()
+                )
+                current_task = f"""
+                Continue the research based on previous findings. 
+                
+                Original task: {task}
+                
+                Previous research findings: {previous_output}
+                
+                Please build upon the previous research and provide additional insights, 
+                clarifications, or deeper analysis as needed.
+                """
+
+            # Execute the research step
+            self.step(current_task, img)
+
+            logger.info(
+                f"Completed research loop {loop_num + 1}/{self.max_loops}"
+            )
+
+            # If export is enabled, save after each loop
+            if self.export_on:
+                self._export_conversation()
 
         return history_output_formatter(
             conversation=self.conversation, type=self.output_type
@@ -383,36 +424,24 @@ class AdvancedResearch:
         """
         [self.run(task) for task in tasks]
 
-    def chat_response(
-        self, message: str, history: List[List[str]]
-    ) -> str:
+    def _export_conversation(self):
         """
-        Process a chat message and return the research response for Gradio interface.
-
-        Args:
-            message (str): The user's research question/task.
-            history (List[List[str]]): Chat history from Gradio.
-
-        Returns:
-            str: The final research response from the director agent.
+        Export the conversation history to a JSON file.
         """
-        try:
-            # Reset conversation for each new chat to avoid context buildup
-            self.conversation = Conversation(
-                name=f"conversation-{self.id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
-            )
+        if self.export_on:
+            output_file = f"examples/outputs/{self.id}.json"
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
-            # Add the user message to conversation
-            self.conversation.add("human", message)
+            conversation_data = {
+                "id": self.id,
+                "name": self.name,
+                "description": self.description,
+                "conversation_history": self.conversation.get_history(),
+                "export_timestamp": datetime.now().isoformat(),
+            }
 
-            # Run the research step
-            output = self.step(message)
-
-            return output
-
-        except Exception as e:
-            logger.error(f"Error in chat response: {e}")
-            return f"I apologize, but I encountered an error while processing your research request: {str(e)}"
+            create_json_file(conversation_data, output_file)
+            logger.info(f"Conversation exported to {output_file}")
 
     def get_output_methods(self):
         """

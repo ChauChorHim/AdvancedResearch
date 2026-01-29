@@ -297,9 +297,16 @@ class ResearchMemory(BaseModel):
     ResearchMemory stores the current state of the research process,
     including the plan and key findings.
     """
-    plan: str = Field(default="", description="The current research plan.")
-    findings: List[str] = Field(default_factory=list, description="List of key findings.")
-    current_phase: str = Field(default="init", description="Current phase of research.")
+
+    plan: str = Field(
+        default="", description="The current research plan."
+    )
+    findings: List[str] = Field(
+        default_factory=list, description="List of key findings."
+    )
+    current_phase: str = Field(
+        default="init", description="Current phase of research."
+    )
 
 
 def create_director_agent(
@@ -417,11 +424,11 @@ class AdvancedResearch:
     def update_research_state(self, plan: str, findings: str) -> str:
         """
         Updates the research memory with a new plan and/or new findings.
-        
+
         Args:
             plan (str): The updated research plan.
             findings (str): New key findings to add to the list.
-            
+
         Returns:
             str: Confirmation message.
         """
@@ -448,10 +455,12 @@ class AdvancedResearch:
         {self.memory.plan}
         
         Key Findings So Far:
-        {chr(10).join(f'- {f}' for f in self.memory.findings)}
+        {chr(10).join(f"- {f}" for f in self.memory.findings)}
         """
-        
-        full_task = f"{task}\n\n[SYSTEM: MEMORY CONTEXT]\n{memory_context}"
+
+        full_task = (
+            f"{task}\n\n[SYSTEM: MEMORY CONTEXT]\n{memory_context}"
+        )
 
         # Run the director agent
         output = create_director_agent(

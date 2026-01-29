@@ -292,12 +292,23 @@ def generate_citations(report: str) -> str:
     return citation_agent.run(task=report)
 
 
+class ResearchMemory(BaseModel):
+    """
+    ResearchMemory stores the current state of the research process,
+    including the plan and key findings.
+    """
+    plan: str = Field(default="", description="The current research plan.")
+    findings: List[str] = Field(default_factory=list, description="List of key findings.")
+    current_phase: str = Field(default="init", description="Current phase of research.")
+
+
 def create_director_agent(
     agent_name: str = "Director-Agent",
     model_name: str = director_model_name,
     task: str | None = None,
     img: Optional[str] = None,
     max_loops: int = 1,
+    extra_tools: List[Any] = None,
     *args,
     **kwargs,
 ):
@@ -310,18 +321,23 @@ def create_director_agent(
         task (str | None): The research task or instruction for the agent to execute.
         max_tokens (int): Maximum number of tokens for the agent's output. Default is 8000.
         img (Optional[str]): Optional image input for the agent.
+        extra_tools (List[Any]): Additional tools to provide to the agent.
         **kwargs: Additional keyword arguments.
 
     Returns:
         str: The output from the director agent after running the specified task.
     """
+    tools = [execute_worker_search_agents]
+    if extra_tools:
+        tools.extend(extra_tools)
+
     director_agent = Agent(
         agent_name=agent_name,
         system_prompt=get_orchestrator_prompt(),
         model_name=model_name,
         max_loops=max_loops,
-        max_tokens=max_tokens,
-        tools=[execute_worker_search_agents],
+        max_tokens=8000,
+        tools=tools,
         tool_call_summary=True,
         *args,
         **kwargs,
@@ -392,10 +408,28 @@ class AdvancedResearch:
         self.max_loops = max_loops
         self.export_on = export_on
         self.director_max_loops = director_max_loops
+        self.memory = ResearchMemory()
 
         self.conversation = Conversation(
             name=f"conversation-{self.id}"
         )
+
+    def update_research_state(self, plan: str, findings: str) -> str:
+        """
+        Updates the research memory with a new plan and/or new findings.
+        
+        Args:
+            plan (str): The updated research plan.
+            findings (str): New key findings to add to the list.
+            
+        Returns:
+            str: Confirmation message.
+        """
+        if plan:
+            self.memory.plan = plan
+        if findings:
+            self.memory.findings.append(findings)
+        return "Research state updated successfully."
 
     def step(self, task: Optional[str], img: Optional[str] = None):
         """
@@ -408,12 +442,24 @@ class AdvancedResearch:
         Returns:
             str: The output from the director agent.
         """
+        # Inject memory context into task
+        memory_context = f"""
+        Current Research Plan:
+        {self.memory.plan}
+        
+        Key Findings So Far:
+        {chr(10).join(f'- {f}' for f in self.memory.findings)}
+        """
+        
+        full_task = f"{task}\n\n[SYSTEM: MEMORY CONTEXT]\n{memory_context}"
+
         # Run the director agent
         output = create_director_agent(
             agent_name=self.director_agent_name,
             model_name=self.director_model_name,
-            task=task,
+            task=full_task,
             img=img,
+            extra_tools=[self.update_research_state],
         )
 
         if schema.enable_citation:

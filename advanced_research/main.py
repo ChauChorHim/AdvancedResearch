@@ -17,6 +17,7 @@ from swarms.utils.history_output_formatter import (
     HistoryOutputType,
     history_output_formatter,
 )
+from swarms.utils.litellm_tokenizer import count_tokens
 from swarms_tools import exa_search
 
 from advanced_research.prompts import (
@@ -38,6 +39,56 @@ exa_search_max_characters = int(
 director_model_name = os.getenv(
     "DIRECTOR_MODEL_NAME", "claude-3-7-sonnet-20250219"
 )
+
+
+class TokenTracker:
+    """
+    Singleton-ish class to track token usage across the research session.
+    """
+
+    _instance = None
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def track(
+        cls,
+        input_str: str,
+        output_str: str,
+        agent_name: str = "Agent",
+    ):
+        try:
+            in_count = count_tokens(input_str)
+            out_count = count_tokens(output_str)
+            cls.input_tokens += in_count
+            cls.output_tokens += out_count
+            cls.total_tokens += in_count + out_count
+            logger.info(
+                f"[{agent_name}] Tokens - Input: {in_count}, Output: {out_count}, Total: {in_count + out_count}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to track tokens: {e}")
+
+    @classmethod
+    def get_stats(cls):
+        return {
+            "input_tokens": cls.input_tokens,
+            "output_tokens": cls.output_tokens,
+            "total_tokens": cls.total_tokens,
+        }
+
+    @classmethod
+    def reset(cls):
+        cls.input_tokens = 0
+        cls.output_tokens = 0
+        cls.total_tokens = 0
 
 
 def generate_id():
@@ -173,7 +224,13 @@ def evaluate_research(query: str, research_output: str) -> str:
         max_loops=1,
         max_tokens=2000,
     )
-    return evaluator.run(task=evaluation_task)
+    result = evaluator.run(task=evaluation_task)
+    TokenTracker.track(
+        evaluation_task + evaluator.system_prompt,
+        result,
+        "Evaluator-Agent",
+    )
+    return result
 
 
 def run_agent(i: int, query: str):
@@ -204,6 +261,11 @@ def run_agent(i: int, query: str):
         tool_call_summary=True,
     )
     result = agent.run(task=query)
+    TokenTracker.track(
+        query + agent.system_prompt,
+        result,
+        f"Worker-Search-Agent-{i}",
+    )
 
     if schema.enable_evaluation:
         evaluation = evaluate_research(query, result)
@@ -289,7 +351,13 @@ def generate_citations(report: str) -> str:
         max_loops=1,
         max_tokens=schema.worker_max_tokens,
     )
-    return citation_agent.run(task=report)
+    result = citation_agent.run(task=report)
+    TokenTracker.track(
+        report + citation_agent.system_prompt,
+        result,
+        "Citation-Agent",
+    )
+    return result
 
 
 class ResearchMemory(BaseModel):
@@ -350,7 +418,11 @@ def create_director_agent(
         **kwargs,
     )
 
-    return director_agent.run(task=task, img=img)
+    output = director_agent.run(task=task, img=img)
+    TokenTracker.track(
+        str(task) + director_agent.system_prompt, output, agent_name
+    )
+    return output
 
 
 class AdvancedResearch:
@@ -476,9 +548,13 @@ class AdvancedResearch:
             output = generate_citations(output)
 
         if schema.enable_evaluation:
-            logger.info("Running Evaluator Agent on Director Output...")
+            logger.info(
+                "Running Evaluator Agent on Director Output..."
+            )
             evaluation = evaluate_research(task, output)
-            output = f"{output}\n\n--- Final Evaluation ---\n{evaluation}"
+            output = (
+                f"{output}\n\n--- Final Evaluation ---\n{evaluation}"
+            )
 
         self.conversation.add(self.director_agent_name, output)
 
@@ -547,6 +623,12 @@ class AdvancedResearch:
             # If export is enabled, save after each loop
             if self.export_on:
                 self._export_conversation()
+
+        # Log total token usage
+        stats = TokenTracker.get_stats()
+        logger.info(
+            f"Research Session Complete. Total Token Usage: {stats}"
+        )
 
         return history_output_formatter(
             conversation=self.conversation, type=self.output_type

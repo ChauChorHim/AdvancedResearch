@@ -63,12 +63,12 @@ def gemini_search_tool(
         characters (int): Not used but kept for interface compatibility.
         sources (int): Not directly controllable in grounding (usually ~5-10), kept for interface.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return "Error: GOOGLE_API_KEY not found in environment variables."
+        return "Error: GEMINI_API_KEY not found in environment variables."
 
-    # Using gemini-1.5-flash for speed and cost effectiveness
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # Using gemini-2.5-flash for speed and cost effectiveness
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
 
     payload = {
         "contents": [{"parts": [{"text": f"Search for: {query}"}]}],

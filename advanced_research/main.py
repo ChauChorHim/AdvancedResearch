@@ -26,6 +26,10 @@ from advanced_research.prompts import (
     get_orchestrator_prompt,
     get_subagent_prompt,
 )
+from advanced_research.search_tools import (
+    duckduckgo_search_tool,
+    gemini_search_tool,
+)
 
 load_dotenv()
 
@@ -236,6 +240,16 @@ def evaluate_research(query: str, research_output: str) -> str:
 def run_agent(i: int, query: str):
     """
     Runs a worker search agent to process a research query.
+    """
+    search_provider = os.getenv("SEARCH_PROVIDER", "exa").lower()
+    if search_provider == "gemini":
+        search_tool = gemini_search_tool
+    elif search_provider in ["ddg", "duckduckgo"]:
+        search_tool = duckduckgo_search_tool
+    else:
+        search_tool = exa_search
+    """
+    Runs a worker search agent to process a research query.
 
     This function instantiates a Swarms Agent with a synthesis prompt and the Exa search tool,
     then executes the agent on the provided query.
@@ -257,7 +271,7 @@ def run_agent(i: int, query: str):
         model_name=schema.worker_model_name,
         max_loops=schema.worker_max_loops,
         max_tokens=schema.worker_max_tokens,
-        tools=[exa_search],
+        tools=[search_tool],
         tool_call_summary=True,
     )
     result = agent.run(task=query)

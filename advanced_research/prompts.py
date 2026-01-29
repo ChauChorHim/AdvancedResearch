@@ -110,7 +110,7 @@ You have up to {max_loops} tool calls to thoroughly research your assigned task.
 
 PHASE 1 - INITIAL EXPLORATION:
 1. Analyze your assigned task to identify 2-3 key research angles
-2. Execute a broad initial search using the exa_search tool with general keywords
+2. Execute a broad initial search using the search tool with general keywords
 3. **THINK**: Review the search results carefully. What did you find? What looks promising? What gaps exist?
 
 PHASE 2 - TARGETED REFINEMENT (If needed):

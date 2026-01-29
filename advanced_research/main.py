@@ -220,7 +220,7 @@ def execute_worker_search_agents(
 
     This function is designed to automate the process of running multiple independent search agents (one per query)
     using the Swarms Agent framework. Each agent is initialized with a custom system prompt tailored to its specific
-    query, and is equipped with the Exa search tool for web research. The agents are run sequentially (not in parallel),
+    query, and is equipped with the Exa search tool for web research. The agents are run in parallel using a thread pool,
     and their outputs are collected and returned as a list.
 
     Args:
@@ -245,7 +245,7 @@ def execute_worker_search_agents(
         2. Return a list of all agent outputs.
 
     Notes:
-        - This function currently runs agents sequentially. For true parallelism, consider using threading or async execution.
+        - This function runs agents in parallel using ThreadPoolExecutor to maximize throughput.
         - The function assumes that `get_subagent_prompt` and `exa_search` are properly defined and imported.
         - The agent's output format depends on the system prompt and the agent's implementation.
         - Useful for orchestrating multi-query research tasks in advanced research pipelines.
@@ -474,6 +474,11 @@ class AdvancedResearch:
         if schema.enable_citation:
             logger.info("Running Citation Agent...")
             output = generate_citations(output)
+
+        if schema.enable_evaluation:
+            logger.info("Running Evaluator Agent on Director Output...")
+            evaluation = evaluate_research(task, output)
+            output = f"{output}\n\n--- Final Evaluation ---\n{evaluation}"
 
         self.conversation.add(self.director_agent_name, output)
 

@@ -27,6 +27,12 @@ def get_orchestrator_prompt() -> str:
     - Assign each sub-question to a worker agent for focused research.
     - Request cross-validation or follow-up research if needed.
 
+    SCALING & RESOURCE ALLOCATION HEURISTICS:
+    - Simple Fact-Finding (e.g., "Population of France"): Assign to 1 worker agent.
+    - Comparative Analysis (e.g., "Claude 3 vs GPT-4"): Assign 2-3 worker agents (one for each subject + one for comparison).
+    - Complex/Broad Research (e.g., "Future of AI in Healthcare"): Assign 4-6 worker agents to cover different sub-domains (technical, ethical, regulatory, economic).
+    - Deep Dives: If a topic requires extensive depth, create focused sub-questions for multiple agents to handle specific verticals.
+
     SYNTHESIS & REPORTING GUIDELINES:
     - Gather all responses from worker agents.
     - Critically evaluate the quality, relevance, and credibility of each finding.

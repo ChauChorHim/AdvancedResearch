@@ -26,3 +26,27 @@ print(json.dumps(result, indent=4))
 with open("garment_simulation_result.json", "w") as f:
     json.dump(result, f, indent=4)
 print("Result saved to garment_simulation_result.json")
+
+def save_results_to_markdown(results, filename):
+    """Saves the research results to a Markdown file."""
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write("# Research Session Results\n\n")
+        
+        for message in results:
+            role = message.get("role", "Unknown")
+            content = message.get("content", "")
+            
+            # Format based on role
+            if role == "human":
+                f.write(f"## 🧑 User Request\n\n{content}\n\n")
+            elif role == "Director-Agent":
+                f.write(f"## 🤖 Research Report\n\n{content}\n\n")
+            else:
+                f.write(f"## {role}\n\n{content}\n\n")
+            
+            f.write("---\n\n")
+    
+    print(f"Results saved to {filename}")
+
+# Save to Markdown
+save_results_to_markdown(result, "garment_simulation_result.md")

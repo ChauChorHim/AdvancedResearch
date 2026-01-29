@@ -72,16 +72,7 @@ def gemini_search_tool(
 
     payload = {
         "contents": [{"parts": [{"text": f"Search for: {query}"}]}],
-        "tools": [
-            {
-                "google_search_retrieval": {
-                    "dynamic_retrieval_config": {
-                        "mode": "MODE_DYNAMIC",
-                        "dynamic_threshold": 0.0,  # Force search
-                    }
-                }
-            }
-        ],
+        "tools": [{"google_search": {}}],
     }
 
     headers = {"Content-Type": "application/json"}

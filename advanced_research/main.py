@@ -30,14 +30,14 @@ from advanced_research.prompts import (
 load_dotenv()
 
 
-model_name = os.getenv("WORKER_MODEL_NAME", "gpt-4.1")
+model_name = os.getenv("WORKER_MODEL_NAME", "gemini/gemini-2.0-flash")
 max_tokens = int(os.getenv("WORKER_MAX_TOKENS", 8000))
 exa_search_num_results = int(os.getenv("EXA_SEARCH_NUM_RESULTS", 2))
 exa_search_max_characters = int(
     os.getenv("EXA_SEARCH_MAX_CHARACTERS", 100)
 )
 director_model_name = os.getenv(
-    "DIRECTOR_MODEL_NAME", "claude-3-7-sonnet-20250219"
+    "DIRECTOR_MODEL_NAME", "gemini/gemini-2.0-pro-exp-02-05"
 )
 
 

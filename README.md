@@ -26,6 +26,9 @@ pip3 install -U advanced-research
 # Exa Search API Key (Required for web search functionality)
 EXA_API_KEY="your_exa_api_key_here"
 
+# Google Gemini API Key (For Gemini models)
+GEMINI_API_KEY="your_gemini_api_key_here"
+
 # Anthropic API Key (For Claude models)
 ANTHROPIC_API_KEY="your_anthropic_api_key_here"
 
@@ -33,7 +36,7 @@ ANTHROPIC_API_KEY="your_anthropic_api_key_here"
 OPENAI_API_KEY="your_openai_api_key_here"
 
 # Worker Agent Configuration
-WORKER_MODEL_NAME="gpt-4.1"
+WORKER_MODEL_NAME="gemini/gemini-2.0-flash"
 WORKER_MAX_TOKENS=8000
 
 # Exa Search Configuration
